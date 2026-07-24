@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Stock & Crypto Signal Terminal</title>
+    <!-- Lightweight Charts Library -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            overflow-x: hidden;
+        }
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-800 border-b border-slate-700 p-2.5 sm:p-3 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3">
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <i class="fa-solid fa-chart-line text-emerald-400 text-lg sm:text-2xl"></i>
+                    <h1 class="text-base sm:text-xl font-bold text-white tracking-wide">STOCK LIFE</h1>
+                </div>
+            </div>
+
+            <!-- Search Form & Favorite Toggle Button -->
+            <form onsubmit="handleSearch(event)" class="flex items-center gap-1.5 sm:gap-2 w-full md:max-w-md">
+                <div class="relative w-full">
+                    <input type="text" id="symbolInput" placeholder="ค้นหา เช่น PTT.BK, NVDA, BTC-USD" 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500 uppercase">
+                </div>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition text-white whitespace-nowrap flex items-center gap-1.5">
+                    <i class="fa-solid fa-magnifying-glass"></i> <span class="hidden sm:inline">ค้นหา</span>
+                </button>
+                <!-- Fav Button -->
+                <button type="button" onclick="toggleFavorite()" id="favToggleBtn" title="เพิ่ม/ลบ รายการโปรด" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm text-amber-400 transition flex items-center justify-center border border-slate-600">
+                    <i id="favToggleIcon" class="fa-regular fa-star text-base"></i>
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <!-- Watchlist / Favorites Bar -->
+    <section class="bg-slate-950 border-b border-slate-800 py-1.5 px-3">
+        <div class="max-w-7xl mx-auto flex items-center gap-2">
+            <div class="flex items-center gap-1 text-[11px] font-semibold text-amber-400 uppercase tracking-wider whitespace-nowrap border-r border-slate-800 pr-2">
+                <i class="fa-solid fa-star text-xs"></i> โปรด:
+            </div>
+            <div id="favoritesList" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
+                <span class="text-slate-500 text-[11px]">ไม่มีรายการโปรด (กด ⭐ เพื่อบันทึก)</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Dashboard -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-3 flex flex-col gap-2 sm:gap-3">
+
+        <!-- Stock Price & Signal Info Bar -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div class="flex items-center justify-between w-full sm:w-auto">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 id="currentSymbol" class="text-lg sm:text-xl font-bold text-white">PTT.BK</h2>
+                    </div>
+                    <span id="currentCurrency" class="text-[10px] sm:text-xs text-slate-400">Currency: THB</span>
+                </div>
+                <!-- Mobile Signal Badge -->
+                <div class="sm:hidden">
+                    <div id="signalDisplayMobile" class="text-xs font-bold bg-slate-700 px-2 py-0.5 rounded text-center">NEUTRAL</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 sm:flex sm:gap-6 w-full sm:w-auto text-left border-t border-slate-700/50 pt-2 sm:pt-0 sm:border-0">
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400">ราคาปัจจุบัน</div>
+                    <div id="priceDisplay" class="text-sm sm:text-lg font-bold text-white transition-colors duration-300">0.00</div>
+                </div>
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400">แนวต้าน</div>
+                    <div id="resDisplay" class="text-sm sm:text-lg font-bold text-rose-400">0.00</div>
+                </div>
+                <div>
+                    <div class="text-[10px] sm:text-xs text-slate-400">แนวรับ</div>
+                    <div id="supDisplay" class="text-sm sm:text-lg font-bold text-emerald-400">0.00</div>
+                </div>
+                <div class="hidden sm:block">
+                    <div class="text-[10px] sm:text-xs text-slate-400">สัญญาณวิเคราะห์</div>
+                    <div id="signalDisplay" class="text-xs sm:text-sm font-bold bg-slate-700 px-3 py-1 rounded mt-0.5 text-center">NEUTRAL</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Realtime Risk Analytics Panel -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5">
+                    <span class="truncate">ความเสี่ยง (Risk)</span>
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                </div>
+                <div id="riskLevelDisplay" class="text-xs sm:text-base font-bold text-amber-400 truncate">กำลังประเมิน...</div>
+                <div id="volatilityDisplay" class="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">Vol: 0.00%</div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5">
+                    <span class="truncate">กรอบแกว่ง (ATR)</span>
+                    <i class="fa-solid fa-arrows-up-down text-blue-400"></i>
+                </div>
+                <div id="atrDisplay" class="text-xs sm:text-base font-bold text-white">0.00</div>
+                <div id="stopLossDisplay" class="text-[10px] sm:text-xs text-rose-400 mt-0.5 truncate">Cut: 0.00</div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5">
+                    <span class="truncate">กรอบราคา 20 วัน</span>
+                    <i class="fa-solid fa-chart-line text-purple-400"></i>
+                </div>
+                <div id="dayRangeDisplay" class="text-xs sm:text-sm font-semibold text-white truncate">Min: 0 | Max: 0</div>
+                <div id="drawdownDisplay" class="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">Drawdown: 0.00%</div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3">
+                <div class="flex items-center justify-between text-[10px] sm:text-xs text-slate-400 mb-0.5">
+                    <span class="truncate">ปริมาณซื้อขาย (Vol)</span>
+                    <i class="fa-solid fa-bars-staggered text-emerald-400"></i>
+                </div>
+                <div id="volumeDisplay" class="text-xs sm:text-base font-bold text-white truncate">0</div>
+                <div id="volStatusDisplay" class="text-[10px] sm:text-xs text-emerald-400 mt-0.5 truncate">สภาวะ: ปกติ</div>
+            </div>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-1 sm:p-2 relative flex flex-col h-[280px] sm:h-[340px]">
+            <div class="absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded border border-slate-700 text-[10px] sm:text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-fast"></span>
+                <span class="font-bold text-emerald-400">LIVE</span>
+                <span id="lastUpdated" class="text-slate-400 text-[9px] sm:text-[10px] ml-1">--:--:--</span>
+            </div>
+
+            <div class="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+                <div class="flex bg-slate-900/80 p-0.5 rounded border border-slate-700 text-[10px] sm:text-xs">
+                    <button onclick="setChartType('candlestick')" id="btnCandle" class="px-2 py-0.5 rounded font-medium bg-emerald-600 text-white transition">
+                        <i class="fa-solid fa-chart-simple mr-1"></i>แท่งเทียน
+                    </button>
+                    <button onclick="setChartType('line')" id="btnLine" class="px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition">
+                        <i class="fa-solid fa-chart-line mr-1"></i>เส้น
+                    </button>
+                </div>
+
+                <button onclick="resetChartScale()" class="bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-[10px] sm:text-xs px-2 py-1 rounded border border-slate-600 transition shadow">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
+
+            <div id="chart" class="w-full h-full"></div>
+            <div id="loading" class="absolute inset-0 bg-slate-900/80 flex items-center justify-center text-emerald-400 text-xs sm:text-sm font-semibold z-10">
+                <i class="fa-solid fa-circle-notch animate-spin mr-2"></i> กำลังโหลดข้อมูล...
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let chart = null;
+        let mainSeries = null;
+        let resLine = null;
+        let supLine = null;
+        let resizeObserver = null;
+        let liveTimer = null;
+        let currentChartType = 'candlestick';
+        let cachedCandles = [];
+        let currentActiveSymbol = 'PTT.BK';
+
+        // --- Mock Data Generator (สำหรับจำลองการทำงานเมื่อไม่มี Backend API) ---
+        function generateMockChartData(symbol) {
+            const isCrypto = symbol.includes('-USD') || symbol.includes('BTC') || symbol.includes('ETH');
+            const isThai = symbol.endsWith('.BK');
+            const basePrice = isCrypto ? 65000 : (isThai ? 34.5 : 140.0);
+            const currency = isCrypto ? 'USD' : (isThai ? 'THB' : 'USD');
+            
+            const candles = [];
+            let price = basePrice;
+            const now = Math.floor(Date.now() / 1000);
+            const daySeconds = 86400;
+
+            for (let i = 50; i >= 0; i--) {
+                const time = now - (i * daySeconds);
+                const volatility = isCrypto ? 0.03 : 0.015;
+                const change = price * (Math.random() - 0.49) * volatility;
+                
+                const open = price;
+                const close = price + change;
+                const high = Math.max(open, close) + (Math.random() * price * volatility * 0.5);
+                const low = Math.min(open, close) - (Math.random() * price * volatility * 0.5);
+                const volume = Math.floor(Math.random() * 5000000) + 500000;
+
+                candles.push({
+                    time: time,
+                    open: parseFloat(open.toFixed(2)),
+                    high: parseFloat(high.toFixed(2)),
+                    low: parseFloat(low.toFixed(2)),
+                    close: parseFloat(close.toFixed(2)),
+                    volume: volume
+                });
+
+                price = close;
+            }
+
+            return {
+                symbol: symbol.toUpperCase(),
+                currency: currency,
+                regularMarketPrice: candles[candles.length - 1].close,
+                candles: candles
+            };
+        }
+
+        // --- Favorites State ---
+        let favorites = JSON.parse(localStorage.getItem('tradevision_favs') || '["PTT.BK", "NVDA", "BTC-USD"]');
+
+        function saveFavorites() {
+            localStorage.setItem('tradevision_favs', JSON.stringify(favorites));
+            renderFavoritesBar();
+            updateFavButtonState();
+        }
+
+        function toggleFavorite(symbolToToggle) {
+            const symbol = (symbolToToggle || currentActiveSymbol).toUpperCase();
+            if (favorites.includes(symbol)) {
+                favorites = favorites.filter(s => s !== symbol);
+            } else {
+                favorites.push(symbol);
+            }
+            saveFavorites();
+        }
+
+        function updateFavButtonState() {
+            const icon = document.getElementById('favToggleIcon');
+            const btn = document.getElementById('favToggleBtn');
+            if (favorites.includes(currentActiveSymbol)) {
+                icon.className = 'fa-solid fa-star text-base text-amber-400';
+                btn.className = 'bg-amber-500/20 hover:bg-amber-500/30 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm text-amber-400 transition flex items-center justify-center border border-amber-500/50';
+            } else {
+                icon.className = 'fa-regular fa-star text-base text-slate-400';
+                btn.className = 'bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm text-slate-400 transition flex items-center justify-center border border-slate-600';
+            }
+        }
+
+        function renderFavoritesBar() {
+            const container = document.getElementById('favoritesList');
+            if (!favorites || favorites.length === 0) {
+                container.innerHTML = `<span class="text-slate-500 text-[11px]">ไม่มีรายการโปรด (กด ⭐ เพื่อบันทึก)</span>`;
+                return;
+            }
+
+            container.innerHTML = favorites.map(sym => {
+                const isActive = sym === currentActiveSymbol;
+                const activeClass = isActive 
+                    ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300 font-bold' 
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300';
+                
+                return `
+                    <div class="flex items-center rounded border px-2 py-0.5 ${activeClass} transition shrink-0 gap-1">
+                        <button onclick="selectFavorite('${sym}')" class="text-[11px] font-mono tracking-wide">
+                            ${sym}
+                        </button>
+                        <button onclick="event.stopPropagation(); toggleFavorite('${sym}')" class="text-slate-500 hover:text-rose-400 text-[10px] ml-0.5">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectFavorite(sym) {
+            document.getElementById('symbolInput').value = sym;
+            loadStockData(true);
+        }
+
+        // --- Chart & Data Loading ---
+        function handleSearch(e) {
+            e.preventDefault();
+            loadStockData(true);
+        }
+
+        function initChart() {
+            const chartElement = document.getElementById('chart');
+            if (!chartElement) return;
+
+            chartElement.innerHTML = '';
+
+            chart = LightweightCharts.createChart(chartElement, {
+                width: chartElement.clientWidth,
+                height: chartElement.clientHeight || 280,
+                layout: { backgroundColor: '#1e293b', textColor: '#cbd5e1' },
+                grid: { vertLines: { color: '#334155' }, horzLines: { color: '#334155' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                priceScale: { 
+                    borderColor: '#475569',
+                    scaleMargins: { top: 0.1, bottom: 0.1 }
+                },
+                timeScale: { borderColor: '#475569', timeVisible: true },
+                handleScroll: { mouseWheel: true, pressedMove: true, horzTouchDrag: true, vertTouchDrag: true },
+                handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+            });
+
+            createMainSeries();
+
+            if (resizeObserver) resizeObserver.disconnect();
+            resizeObserver = new ResizeObserver(entries => {
+                if (entries.length === 0 || !entries[0].contentRect) return;
+                const newWidth = entries[0].contentRect.width;
+                const newHeight = entries[0].contentRect.height;
+                if (chart && newWidth > 0 && newHeight > 0) {
+                    chart.applyOptions({ width: newWidth, height: newHeight });
+                }
+            });
+            resizeObserver.observe(chartElement);
+        }
+
+        function createMainSeries() {
+            if (!chart) return;
+            if (mainSeries) chart.removeSeries(mainSeries);
+
+            if (currentChartType === 'candlestick') {
+                mainSeries = chart.addCandlestickSeries({
+                    upColor: '#10b981', downColor: '#f43f5e',
+                    borderUpColor: '#10b981', borderDownColor: '#f43f5e',
+                    wickUpColor: '#10b981', wickDownColor: '#f43f5e',
+                });
+            } else {
+                mainSeries = chart.addLineSeries({
+                    color: '#3b82f6',
+                    lineWidth: 2,
+                });
+            }
+        }
+
+        function setChartType(type) {
+            if (currentChartType === type) return;
+            currentChartType = type;
+
+            const btnCandle = document.getElementById('btnCandle');
+            const btnLine = document.getElementById('btnLine');
+
+            if (type === 'candlestick') {
+                btnCandle.className = "px-2 py-0.5 rounded font-medium bg-emerald-600 text-white transition";
+                btnLine.className = "px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition";
+            } else {
+                btnLine.className = "px-2 py-0.5 rounded font-medium bg-blue-600 text-white transition";
+                btnCandle.className = "px-2 py-0.5 rounded font-medium text-slate-400 hover:text-white transition";
+            }
+
+            createMainSeries();
+            renderSeriesData();
+        }
+
+        function renderSeriesData() {
+            if (!mainSeries || cachedCandles.length === 0) return;
+
+            if (currentChartType === 'candlestick') {
+                mainSeries.setData(cachedCandles);
+            } else {
+                const lineData = cachedCandles.map(c => ({
+                    time: c.time,
+                    value: c.close
+                }));
+                mainSeries.setData(lineData);
+            }
+            calculateTechnicalSignals(cachedCandles);
+        }
+
+        function resetChartScale() {
+            if (chart) {
+                chart.timeScale().fitContent();
+            }
+        }
+
+        async function loadStockData(showLoading = false) {
+            if (!chart || !mainSeries) {
+                initChart();
+            }
+
+            const symbol = (document.getElementById('symbolInput').value.trim() || 'PTT.BK').toUpperCase();
+            currentActiveSymbol = symbol;
+            
+            updateFavButtonState();
+            renderFavoritesBar();
+
+            if (showLoading) {
+                document.getElementById('loading').style.display = 'flex';
+            }
+
+            try {
+                let data;
+                try {
+                    // พยายามเชื่อมต่อ API จริงก่อน
+                    const res = await fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}`);
+                    data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                } catch (e) {
+                    // หากไม่มี Backend ให้สลับไปใช้ Mock Data อัตโนมัติ
+                    data = generateMockChartData(symbol);
+                }
+
+                document.getElementById('currentSymbol').innerText = data.symbol;
+                document.getElementById('currentCurrency').innerText = `Currency: ${data.currency || 'USD'}`;
+
+                cachedCandles = data.candles || [];
+                if (cachedCandles.length === 0) return;
+
+                const lastCandle = cachedCandles[cachedCandles.length - 1];
+                const currentPrice = data.regularMarketPrice || lastCandle.close;
+                
+                const priceElem = document.getElementById('priceDisplay');
+                const oldPrice = parseFloat(priceElem.innerText);
+                priceElem.innerText = currentPrice.toFixed(2);
+                
+                if (oldPrice && oldPrice !== currentPrice) {
+                    priceElem.className = currentPrice > oldPrice 
+                        ? 'text-sm sm:text-lg font-bold text-emerald-500 transition-colors duration-300' 
+                        : 'text-sm sm:text-lg font-bold text-rose-500 transition-colors duration-300';
+                    setTimeout(() => { 
+                        priceElem.className = 'text-sm sm:text-lg font-bold text-white'; 
+                    }, 1000);
+                }
+
+                renderSeriesData();
+                calculateRiskAnalytics(cachedCandles, currentPrice);
+
+                const now = new Date();
+                document.getElementById('lastUpdated').innerText = now.toTimeString().split(' ')[0];
+
+                if (showLoading && chart) {
+                    chart.timeScale().fitContent();
+                    startRealtimeUpdates();
+                }
+            } catch (err) {
+                if (showLoading) alert('เกิดข้อผิดพลาด: ' + err.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function calculateRiskAnalytics(candles, currentPrice) {
+            if (!candles || candles.length < 14) return;
+
+            const recent20 = candles.slice(-20);
+            const closes = recent20.map(c => c.close);
+            
+            const mean = closes.reduce((a, b) => a + b, 0) / closes.length;
+            const variance = closes.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / closes.length;
+            const stdDev = Math.sqrt(variance);
+            const volatilityPercent = (stdDev / mean) * 100;
+
+            document.getElementById('volatilityDisplay').innerText = `Vol: ${volatilityPercent.toFixed(2)}%`;
+
+            const riskBox = document.getElementById('riskLevelDisplay');
+            if (volatilityPercent < 1.5) {
+                riskBox.innerText = 'ต่ำ (Low)';
+                riskBox.className = 'text-xs sm:text-base font-bold text-emerald-500 truncate';
+            } else if (volatilityPercent <= 3.5) {
+                riskBox.innerText = 'ปานกลาง (Med)';
+                riskBox.className = 'text-xs sm:text-base font-bold text-amber-500 truncate';
+            } else {
+                riskBox.innerText = 'สูง (High)';
+                riskBox.className = 'text-xs sm:text-base font-bold text-rose-500 truncate';
+            }
+
+            let trSum = 0;
+            const recent14 = candles.slice(-14);
+            for (let i = 1; i < recent14.length; i++) {
+                const tr = Math.max(
+                    recent14[i].high - recent14[i].low,
+                    Math.abs(recent14[i].high - recent14[i - 1].close),
+                    Math.abs(recent14[i].low - recent14[i - 1].close)
+                );
+                trSum += tr;
+            }
+            const atr = trSum / 14;
+            document.getElementById('atrDisplay').innerText = atr.toFixed(2);
+            
+            const stopLoss = Math.max(0, currentPrice - (atr * 2));
+            document.getElementById('stopLossDisplay').innerText = `Cut: ${stopLoss.toFixed(2)}`;
+
+            const maxHigh20 = Math.max(...recent20.map(c => c.high));
+            const minLow20 = Math.min(...recent20.map(c => c.low));
+            const maxDrawdown = ((maxHigh20 - minLow20) / maxHigh20) * 100;
+
+            document.getElementById('dayRangeDisplay').innerText = `L: ${minLow20.toFixed(1)} | H: ${maxHigh20.toFixed(1)}`;
+            document.getElementById('drawdownDisplay').innerText = `DD: ${maxDrawdown.toFixed(1)}%`;
+
+            const lastVolume = candles[candles.length - 1].volume || 0;
+            const avgVolume = recent20.reduce((acc, c) => acc + (c.volume || 0), 0) / recent20.length;
+            
+            document.getElementById('volumeDisplay').innerText = lastVolume > 1000000 ? (lastVolume / 1000000).toFixed(1) + 'M' : lastVolume.toLocaleString();
+            const volStatus = document.getElementById('volStatusDisplay');
+            if (lastVolume > avgVolume * 1.5) {
+                volStatus.innerText = 'สภาวะ: หนักมาก';
+                volStatus.className = 'text-[10px] sm:text-xs text-amber-500 mt-0.5 truncate';
+            } else {
+                volStatus.innerText = 'สภาวะ: ปกติ';
+                volStatus.className = 'text-[10px] sm:text-xs text-emerald-500 mt-0.5 truncate';
+            }
+        }
+
+        function calculateTechnicalSignals(candles) {
+            if (!candles || candles.length < 20 || !mainSeries) return;
+
+            const recent = candles.slice(-20);
+            const maxHigh = Math.max(...recent.map(c => c.high));
+            const minLow = Math.min(...recent.map(c => c.low));
+            const lastClose = candles[candles.length - 1].close;
+
+            document.getElementById('resDisplay').innerText = maxHigh.toFixed(2);
+            document.getElementById('supDisplay').innerText = minLow.toFixed(2);
+
+            if (resLine) mainSeries.removePriceLine(resLine);
+            if (supLine) mainSeries.removePriceLine(supLine);
+
+            resLine = mainSeries.createPriceLine({
+                price: maxHigh, color: '#f43f5e', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'RESIST'
+            });
+            supLine = mainSeries.createPriceLine({
+                price: minLow, color: '#10b981', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'SUPPORT'
+            });
+
+            const sma5 = candles.slice(-5).reduce((acc, c) => acc + c.close, 0) / 5;
+            const sma20 = candles.slice(-20).reduce((acc, c) => acc + c.close, 0) / 20;
+
+            const signalBox = document.getElementById('signalDisplay');
+            const signalBoxMobile = document.getElementById('signalDisplayMobile');
+
+            let signalText = 'HOLD / NEUTRAL';
+            let signalClass = 'text-xs sm:text-sm font-bold bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-center';
+
+            if (sma5 > sma20 && lastClose > minLow) {
+                signalText = 'BUY / BULLISH';
+                signalClass = 'text-xs sm:text-sm font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-center border border-emerald-500';
+            } else if (sma5 < sma20 || lastClose <= minLow) {
+                signalText = 'SELL / BEARISH';
+                signalClass = 'text-xs sm:text-sm font-bold bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded text-center border border-rose-500';
+            }
+
+            if (signalBox) { signalBox.innerText = signalText; signalBox.className = signalClass; }
+            if (signalBoxMobile) { signalBoxMobile.innerText = signalText; signalBoxMobile.className = signalClass; }
+        }
+
+        function startRealtimeUpdates() {
+            if (liveTimer) clearInterval(liveTimer);
+            
+            const isCrypto = currentActiveSymbol.includes('-USD') || currentActiveSymbol.includes('BTC') || currentActiveSymbol.includes('ETH');
+            const interval = isCrypto ? 2000 : 5000;
+
+            liveTimer = setInterval(() => {
+                loadStockData(false);
+            }, interval);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            renderFavoritesBar();
+            document.getElementById('symbolInput').value = 'PTT.BK';
+            loadStockData(true);
+        });
+    </script>
+</body>
+</html> ๆ
